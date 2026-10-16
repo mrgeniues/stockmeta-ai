@@ -20,6 +20,7 @@ import {
   Minimize2,
   Loader2,
   Clock,
+  Film,
 } from 'lucide-react';
 import { analyzeCompliance } from '../utils/compliance';
 import { AnimatedCounter } from './motion/AnimatedCounter';
@@ -161,16 +162,10 @@ const FileThumbnailBox: React.FC<{
           }`}
           loading="lazy"
         />
-      ) : isVideo && item.previewUrl ? (
-        <video
-          src={item.previewUrl}
-          className={`h-full w-full object-cover pointer-events-none select-none ${
-            silhouetteMode ? 'brightness-0 contrast-200' : ''
-          }`}
-          muted
-          playsInline
-          preload="metadata"
-        />
+      ) : isVideo ? (
+        <div className="h-full w-full bg-slate-900/90 flex flex-col items-center justify-center select-none text-blue-400">
+          <Film className="h-5 w-5 animate-pulse opacity-80" />
+        </div>
       ) : (
         <img
           src={item.previewUrl || ''}
@@ -802,13 +797,10 @@ export const GeneratedMetadataCard: React.FC<GeneratedMetadataCardProps> = ({
                               }`}
                               loading="lazy"
                             />
-                          ) : isVideo && item.previewUrl ? (
-                            <video
-                              src={item.previewUrl}
-                              className="h-full w-full object-cover pointer-events-none select-none"
-                              muted
-                              playsInline
-                            />
+                          ) : isVideo ? (
+                            <div className="h-full w-full bg-slate-900/90 flex flex-col items-center justify-center select-none text-blue-400">
+                              <Film className="h-5 w-5 animate-pulse opacity-80" />
+                            </div>
                           ) : (
                             <img
                               src={item.previewUrl || ''}
@@ -1043,16 +1035,10 @@ export const GeneratedMetadataCard: React.FC<GeneratedMetadataCardProps> = ({
                               }`}
                               loading="lazy"
                             />
-                          ) : isVideo && item.previewUrl ? (
-                            <video
-                              src={item.previewUrl}
-                              className={`h-full w-full object-cover pointer-events-none select-none ${
-                                silhouetteMode ? 'brightness-0 contrast-200' : ''
-                              }`}
-                              muted
-                              playsInline
-                              preload="metadata"
-                            />
+                          ) : isVideo ? (
+                            <div className="h-full w-full bg-slate-900/90 flex flex-col items-center justify-center select-none text-blue-400">
+                              <Film className="h-5 w-5 animate-pulse opacity-80" />
+                            </div>
                           ) : (
                             <img
                               src={item.previewUrl || ''}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileItem } from '../types';
+import { FileItem, UploadProgress } from '../types';
 import {
   Trash2,
   AlertCircle,
@@ -8,6 +8,7 @@ import {
   Clock,
   Image as ImageIcon,
   Folder,
+  Film,
 } from 'lucide-react';
 import { TiltCard } from './motion/TiltCard';
 import { AnimatedCounter } from './motion/AnimatedCounter';
@@ -17,6 +18,7 @@ interface UploadedFilesListProps {
   silhouetteMode: boolean;
   onClearAll: () => void;
   isGenerating: boolean;
+  uploadProgress?: UploadProgress | null;
 }
 
 function formatBytes(bytes: number, decimals = 1): string {
@@ -31,6 +33,7 @@ function formatBytes(bytes: number, decimals = 1): string {
 /**
  * Renders a small real thumbnail (~44px) displaying actual image/svg/video content with object-cover.
  * Overlaid at the bottom-left corner with a small dark-pill type badge: 'VID' | 'IMG' | 'SVG'.
+ * Does NOT mount live video decoders while poster is pending — uses a lightweight placeholder.
  */
 const RealThumbnail: React.FC<{ item: FileItem; silhouetteMode?: boolean }> = ({ item, silhouetteMode }) => {
   const isSvg =
@@ -46,9 +49,10 @@ const RealThumbnail: React.FC<{ item: FileItem; silhouetteMode?: boolean }> = ({
   );
 
   const typeLabel = isVideo ? 'VID' : isSvg ? 'SVG' : 'IMG';
-  const isPosterOrImage = Boolean(
-    item.previewUrl && (item.previewUrl.startsWith('data:image/') || !isVideo)
+  const hasPoster = Boolean(
+    item.previewUrl && (item.previewUrl.startsWith('data:image/') || item.previewUrl.startsWith('http'))
   );
+  const isPosterOrImage = isVideo ? hasPoster : Boolean(item.previewUrl);
 
   return (
     <div className="relative h-11 w-11 shrink-0 rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface)] flex items-center justify-center shadow-xs">
@@ -61,16 +65,10 @@ const RealThumbnail: React.FC<{ item: FileItem; silhouetteMode?: boolean }> = ({
           }`}
           loading="lazy"
         />
-      ) : isVideo && item.previewUrl ? (
-        <video
-          src={item.previewUrl}
-          className={`h-full w-full object-cover pointer-events-none select-none ${
-            silhouetteMode ? 'brightness-0 contrast-200' : ''
-          }`}
-          muted
-          playsInline
-          preload="metadata"
-        />
+      ) : isVideo ? (
+        <div className="h-full w-full bg-slate-900/90 flex items-center justify-center select-none">
+          <Film className="h-4 w-4 text-blue-400/80 animate-pulse" />
+        </div>
       ) : (
         <img
           src={item.previewUrl || ''}
@@ -94,6 +92,7 @@ export const UploadedFilesList: React.FC<UploadedFilesListProps> = ({
   silhouetteMode,
   onClearAll,
   isGenerating,
+  uploadProgress,
 }) => {
   return (
     <div className="w-full h-full flex flex-col" id="uploaded-files-section">
@@ -124,6 +123,41 @@ export const UploadedFilesList: React.FC<UploadedFilesListProps> = ({
 
         {/* Divider */}
         <div className="border-b border-[var(--border)] mb-3" />
+
+        {/* LIVE Upload Progress Indicator */}
+        {uploadProgress && uploadProgress.isUploading && files.length > 0 && (
+          <div className="mb-3 rounded-xl border border-blue-500/30 bg-blue-500/10 p-2.5 sm:p-3 transition-all animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center justify-between text-xs mb-1.5 font-medium">
+              <div className="flex items-center gap-2 min-w-0">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400 shrink-0" />
+                <span className="font-semibold text-blue-400">Uploading...</span>
+                <span className="text-[var(--text)] font-mono text-[11px] sm:text-xs truncate">
+                  {uploadProgress.completed} / {uploadProgress.total} files uploaded
+                </span>
+              </div>
+              <span className="font-mono text-xs font-bold text-blue-400 tabular-nums shrink-0 ml-2">
+                {uploadProgress.total > 0
+                  ? Math.min(100, Math.round((uploadProgress.completed / uploadProgress.total) * 100))
+                  : 0}
+                %
+              </span>
+            </div>
+
+            {/* Slim Progress Bar */}
+            <div className="h-1.5 w-full rounded-full bg-[var(--border)] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-linear-to-r from-blue-500 to-indigo-500 transition-all duration-200 ease-out"
+                style={{
+                  width: `${
+                    uploadProgress.total > 0
+                      ? Math.min(100, Math.max(0, Math.round((uploadProgress.completed / uploadProgress.total) * 100)))
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Empty State */}
         {files.length === 0 && (

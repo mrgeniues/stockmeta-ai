@@ -59,11 +59,27 @@ export const PeekPreviewModal: React.FC<PeekPreviewModalProps> = ({
     ? 'SVG'
     : 'JPG';
 
-  // For video preview, prefer blob URL or original file URL for playback
-  const mediaSrc =
-    item.file && typeof URL !== 'undefined'
-      ? URL.createObjectURL(item.file)
-      : item.previewUrl;
+  const [mediaSrc, setMediaSrc] = React.useState<string>('');
+
+  useEffect(() => {
+    if (!item) {
+      setMediaSrc('');
+      return;
+    }
+    if (isVideo && item.file && typeof URL !== 'undefined') {
+      const url = URL.createObjectURL(item.file);
+      setMediaSrc(url);
+      return () => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore
+        }
+      };
+    } else {
+      setMediaSrc(item.previewUrl || '');
+    }
+  }, [item, isVideo]);
 
   return (
     <div

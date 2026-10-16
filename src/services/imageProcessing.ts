@@ -149,11 +149,69 @@ async function seekVideoToTime(
 }
 
 /**
- * Capture a single video poster frame thumbnail for the UI list.
- * Automatically avoids black slates / intro fade-ins by testing luminance.
+ * Fast seek helper tailored specifically for quick video poster frame extraction.
+ * Bypasses long compositional delays to keep thumbnail generation blazing fast.
  */
-export async function captureVideoPoster(file: File): Promise<string> {
+function fastSeekPoster(video: HTMLVideoElement, targetTime: number, timeoutMs = 1200): Promise<boolean> {
+  return new Promise((res) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (!done) {
+        done = true;
+        cleanup();
+        res(video.readyState >= 2);
+      }
+    }, timeoutMs);
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('error', onError);
+    };
+
+    const onSeeked = () => {
+      if (!done) {
+        done = true;
+        cleanup();
+        res(true);
+      }
+    };
+
+    const onError = () => {
+      if (!done) {
+        done = true;
+        cleanup();
+        res(false);
+      }
+    };
+
+    video.addEventListener('seeked', onSeeked, { once: true });
+    video.addEventListener('error', onError, { once: true });
+
+    try {
+      video.currentTime = targetTime;
+    } catch {
+      if (!done) {
+        done = true;
+        cleanup();
+        res(false);
+      }
+    }
+  });
+}
+
+/**
+ * Capture a single lightweight video poster frame thumbnail for the UI list.
+ * Automatically avoids black slates / intro fade-ins by testing luminance.
+ * Downscales to small thumbnail size (max 320px) and releases the video decoder immediately.
+ */
+export async function captureVideoPoster(file: File, signal?: AbortSignal): Promise<string> {
   return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve('');
+      return;
+    }
+
     let resolved = false;
     const video = document.createElement('video');
     const url = URL.createObjectURL(file);
@@ -163,45 +221,65 @@ export async function captureVideoPoster(file: File): Promise<string> {
 
     const cleanup = () => {
       try {
+        video.onloadedmetadata = null;
+        video.onerror = null;
         URL.revokeObjectURL(url);
+        video.pause();
+        video.removeAttribute('src');
         video.src = '';
+        video.load();
         video.remove();
       } catch {
         // ignore
       }
     };
 
-    // Safety timeout: 7 seconds maximum
+    if (signal) {
+      signal.addEventListener(
+        'abort',
+        () => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            cleanup();
+            resolve('');
+          }
+        },
+        { once: true }
+      );
+    }
+
+    // Safety timeout: 3.5 seconds maximum per poster job
     const timer = setTimeout(() => {
       if (!resolved) {
         resolved = true;
         cleanup();
         resolve('');
       }
-    }, 7000);
+    }, 3500);
 
     const drawPosterCanvas = (): { dataUrl: string; isBlack: boolean } => {
       try {
         const canvas = document.createElement('canvas');
         const maxDim = 320;
         let w = video.videoWidth || 320;
-        let h = video.videoHeight || 240;
+        let h = video.videoHeight || 180;
         if (w > maxDim || h > maxDim) {
           if (w >= h) {
             h = Math.round((h * maxDim) / w);
             w = maxDim;
           } else {
-            h = Math.round((w * maxDim) / h);
+            w = Math.round((w * maxDim) / h);
             h = maxDim;
           }
         }
         canvas.width = Math.max(1, w);
         canvas.height = Math.max(1, h);
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
           ctx.drawImage(video, 0, 0, w, h);
           const isBlack = isFrameBlackOrBlank(ctx, w, h);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.80);
           return { dataUrl, isBlack };
         }
       } catch {
@@ -212,19 +290,49 @@ export async function captureVideoPoster(file: File): Promise<string> {
 
     video.onloadedmetadata = async () => {
       try {
+        if (signal?.aborted) {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            cleanup();
+            resolve('');
+          }
+          return;
+        }
+
         const duration = video.duration && isFinite(video.duration) ? video.duration : 6;
         // Start probe at ~15% or 0.8s
         const initialSeek = Math.min(Math.max(0.6, duration * 0.15), Math.max(0.6, duration - 0.2));
-        await seekVideoToTime(video, initialSeek, 2500);
+        await fastSeekPoster(video, initialSeek, 1000);
+
+        if (signal?.aborted) {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            cleanup();
+            resolve('');
+          }
+          return;
+        }
 
         let { dataUrl, isBlack } = drawPosterCanvas();
 
         // If the initial poster frame is black/blank and video is longer than 2.0s,
         // seek deeper into the video (e.g. 45% or 50%) to capture genuine visual content!
         if (isBlack && duration > 2.0) {
-          const alternateSeek = Math.min(duration * 0.5, duration - 0.5);
-          console.log(`[captureVideoPoster] Initial frame was black. Trying midpoint ${alternateSeek.toFixed(2)}s for poster`);
-          await seekVideoToTime(video, alternateSeek, 2500);
+          const alternateSeek = Math.min(duration * 0.45, duration - 0.5);
+          await fastSeekPoster(video, alternateSeek, 1000);
+
+          if (signal?.aborted) {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(timer);
+              cleanup();
+              resolve('');
+            }
+            return;
+          }
+
           const secondResult = drawPosterCanvas();
           if (secondResult.dataUrl && !secondResult.isBlack) {
             dataUrl = secondResult.dataUrl;

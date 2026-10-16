@@ -60,6 +60,12 @@ export interface FileItem {
   isExpanded?: boolean;
 }
 
+export interface UploadProgress {
+  isUploading: boolean;
+  completed: number;
+  total: number;
+}
+
 export interface ToastMessage {
   id: string;
   type: 'success' | 'error' | 'info';

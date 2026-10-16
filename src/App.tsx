@@ -7,6 +7,7 @@ import {
   FileStatus,
   PlatformSettings,
   DEFAULT_PLATFORM_SETTINGS,
+  UploadProgress,
 } from './types';
 import { PLATFORM_PRESETS } from './constants/presets';
 import { Navbar } from './components/Navbar';
@@ -135,6 +136,9 @@ export default function App() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationCount, setCelebrationCount] = useState(0);
 
+  // Live upload progress state
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+
   // Track cancellation if needed
   const cancelRequestedRef = useRef(false);
 
@@ -181,16 +185,130 @@ export default function App() {
     return new KeyPool([...savedKeys]);
   }, [savedKeys]);
 
-  // Handle files selected via DropZone
+  // Poster capture queue refs to throttle concurrent jobs and allow instant cancellation
+  const posterQueueRef = useRef<{ id: string; file: File; abortController: AbortController }[]>([]);
+  const activePosterJobsRef = useRef<number>(0);
+  const activeControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const batchAddTokenRef = useRef<number>(0);
+  const MAX_CONCURRENT_POSTERS = 3;
+
+  // Batch upload progress tracking ref
+  const uploadBatchRef = useRef<{
+    active: boolean;
+    total: number;
+    completedIds: Set<string>;
+    pendingIds: Set<string>;
+    settleTimer: ReturnType<typeof setTimeout> | null;
+  }>({
+    active: false,
+    total: 0,
+    completedIds: new Set(),
+    pendingIds: new Set(),
+    settleTimer: null,
+  });
+
+  const markFileUploaded = useCallback((id: string) => {
+    const batch = uploadBatchRef.current;
+    if (!batch.active) return;
+    if (!batch.pendingIds.has(id) || batch.completedIds.has(id)) return;
+
+    batch.pendingIds.delete(id);
+    batch.completedIds.add(id);
+
+    const completed = batch.completedIds.size;
+    const total = batch.total;
+
+    setUploadProgress({
+      isUploading: true,
+      completed,
+      total,
+    });
+
+    if (completed >= total && total > 0) {
+      if (batch.settleTimer) clearTimeout(batch.settleTimer);
+      batch.settleTimer = setTimeout(() => {
+        batch.active = false;
+        batch.total = 0;
+        batch.completedIds.clear();
+        batch.pendingIds.clear();
+        setUploadProgress(null);
+      }, 750);
+    }
+  }, []);
+
+  const processNextPosters = useCallback(() => {
+    while (
+      activePosterJobsRef.current < MAX_CONCURRENT_POSTERS &&
+      posterQueueRef.current.length > 0
+    ) {
+      const nextTask = posterQueueRef.current.shift();
+      if (!nextTask) break;
+      const { id, file, abortController } = nextTask;
+
+      if (abortController.signal.aborted) {
+        continue;
+      }
+
+      activePosterJobsRef.current++;
+      activeControllersRef.current.set(id, abortController);
+
+      captureVideoPoster(file, abortController.signal)
+        .then((posterData) => {
+          if (abortController.signal.aborted || !posterData) return;
+          setFiles((prev) =>
+            prev.map((f) => {
+              if (f.id === id) {
+                if (f.previewUrl && f.previewUrl.startsWith('blob:')) {
+                  try {
+                    URL.revokeObjectURL(f.previewUrl);
+                  } catch {
+                    // ignore
+                  }
+                }
+                return { ...f, previewUrl: posterData };
+              }
+              return f;
+            })
+          );
+        })
+        .catch(() => {
+          // ignore poster error
+        })
+        .finally(() => {
+          activeControllersRef.current.delete(id);
+          activePosterJobsRef.current = Math.max(0, activePosterJobsRef.current - 1);
+          markFileUploaded(id);
+          processNextPosters();
+        });
+    }
+  }, [markFileUploaded]);
+
+  const enqueuePosterJob = useCallback(
+    (id: string, file: File) => {
+      const abortController = new AbortController();
+      posterQueueRef.current.push({ id, file, abortController });
+      activeControllersRef.current.set(id, abortController);
+      processNextPosters();
+    },
+    [processNextPosters]
+  );
+
+  // Handle files selected via DropZone (chunked progressively so UI never freezes)
   const handleFilesSelected = async (newRawFiles: File[]) => {
-    const newItems: FileItem[] = newRawFiles.map((file) => {
+    if (!newRawFiles.length) return;
+    const batchToken = ++batchAddTokenRef.current;
+    const totalNew = newRawFiles.length;
+    addToast('success', `Added ${totalNew} file${totalNew > 1 ? 's' : ''}`);
+
+    // Pre-create file items with unique IDs so we can register all in uploadBatchRef immediately
+    const allNewItems: FileItem[] = newRawFiles.map((file) => {
       const isVideo =
         file.type.startsWith('video/') ||
         /\.(mp4|avi|mov|wmv|flv|webm)$/i.test(file.name);
       // For images, SVG and videos, create direct object URL for immediate real thumbnail
       const previewUrl = URL.createObjectURL(file);
       return {
-        id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+        id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
         file,
         name: file.name,
         size: file.size,
@@ -202,37 +320,73 @@ export default function App() {
       };
     });
 
-    setFiles((prev) => [...prev, ...newItems]);
-    addToast('success', `Added ${newItems.length} file${newItems.length > 1 ? 's' : ''}`);
+    // Update batch totals (if user adds another batch while one is still processing, total updates)
+    const batch = uploadBatchRef.current;
+    if (batch.settleTimer) {
+      clearTimeout(batch.settleTimer);
+      batch.settleTimer = null;
+    }
+    batch.active = true;
+    batch.total += allNewItems.length;
+    allNewItems.forEach((it) => batch.pendingIds.add(it.id));
 
-    // Asynchronously capture real full-color poster frames for videos
-    for (const item of newItems) {
-      if (item.isVideo) {
-        captureVideoPoster(item.file).then((posterData) => {
-          if (posterData) {
-            setFiles((prev) =>
-              prev.map((f) => {
-                if (f.id === item.id) {
-                  if (f.previewUrl && f.previewUrl.startsWith('blob:')) {
-                    try {
-                      URL.revokeObjectURL(f.previewUrl);
-                    } catch {
-                      // ignore
-                    }
-                  }
-                  return { ...f, previewUrl: posterData };
-                }
-                return f;
-              })
-            );
-          }
-        });
+    setUploadProgress({
+      isUploading: true,
+      completed: batch.completedIds.size,
+      total: batch.total,
+    });
+
+    // Insert rows progressively in small chunks yielded to the browser
+    const CHUNK_SIZE = 6;
+    for (let i = 0; i < allNewItems.length; i += CHUNK_SIZE) {
+      if (batchAddTokenRef.current !== batchToken) {
+        // Clear all or another batch superseded this
+        break;
+      }
+
+      const chunkItems = allNewItems.slice(i, i + CHUNK_SIZE);
+
+      setFiles((prev) => [...prev, ...chunkItems]);
+
+      // For each item in chunk: videos go to throttled poster queue, non-videos complete immediately
+      for (const item of chunkItems) {
+        if (item.isVideo) {
+          enqueuePosterJob(item.id, item.file);
+        } else {
+          markFileUploaded(item.id);
+        }
+      }
+
+      // Yield to browser event loop between chunks so scrolling, clicks, and animations stay fluid
+      if (i + CHUNK_SIZE < allNewItems.length) {
+        await new Promise<void>((r) => setTimeout(r, 16));
       }
     }
   };
 
-  // Clear all files
+  // Clear all files instantly and abort any pending/queued poster decoders
   const handleClearAll = () => {
+    batchAddTokenRef.current++;
+
+    // Clear and reset upload progress batch
+    const batch = uploadBatchRef.current;
+    if (batch.settleTimer) clearTimeout(batch.settleTimer);
+    batch.active = false;
+    batch.total = 0;
+    batch.completedIds.clear();
+    batch.pendingIds.clear();
+    setUploadProgress(null);
+
+    // Abort queued poster tasks
+    posterQueueRef.current.forEach((t) => t.abortController.abort());
+    posterQueueRef.current = [];
+
+    // Abort active poster captures
+    activeControllersRef.current.forEach((c) => c.abort());
+    activeControllersRef.current.clear();
+    activePosterJobsRef.current = 0;
+
+    // Revoke all preview blob URLs
     files.forEach((f) => {
       if (f.previewUrl && f.previewUrl.startsWith('blob:')) {
         try {
@@ -242,12 +396,59 @@ export default function App() {
         }
       }
     });
+
     setFiles([]);
     addToast('info', 'All uploaded files cleared');
   };
 
-  // Remove individual file
+  // Remove individual file instantly and cancel any queued/running poster job
   const handleRemoveFile = (id: string) => {
+    // Abort active poster capture if running
+    const controller = activeControllersRef.current.get(id);
+    if (controller) {
+      controller.abort();
+      activeControllersRef.current.delete(id);
+    }
+
+    // Remove from poster queue if waiting
+    posterQueueRef.current = posterQueueRef.current.filter((t) => {
+      if (t.id === id) {
+        t.abortController.abort();
+        return false;
+      }
+      return true;
+    });
+
+    // Adjust upload progress batch if this file was part of an active upload
+    const batch = uploadBatchRef.current;
+    if (batch.active) {
+      if (batch.pendingIds.has(id)) {
+        batch.pendingIds.delete(id);
+        batch.total = Math.max(0, batch.total - 1);
+      } else if (batch.completedIds.has(id)) {
+        batch.completedIds.delete(id);
+        batch.total = Math.max(0, batch.total - 1);
+      }
+
+      if (batch.total <= 0 || batch.completedIds.size >= batch.total) {
+        if (batch.settleTimer) clearTimeout(batch.settleTimer);
+        batch.settleTimer = setTimeout(() => {
+          batch.active = false;
+          batch.total = 0;
+          batch.completedIds.clear();
+          batch.pendingIds.clear();
+          setUploadProgress(null);
+        }, 400);
+      } else {
+        setUploadProgress({
+          isUploading: true,
+          completed: batch.completedIds.size,
+          total: batch.total,
+        });
+      }
+    }
+
+    // Revoke blob URL
     const target = files.find((f) => f.id === id);
     if (target?.previewUrl && target.previewUrl.startsWith('blob:')) {
       try {
@@ -516,6 +717,7 @@ export default function App() {
                     silhouetteMode={settings.silhouetteMode}
                     onClearAll={handleClearAll}
                     isGenerating={isGenerating}
+                    uploadProgress={uploadProgress}
                   />
                 </div>
 
