@@ -35,35 +35,38 @@ async function startServer() {
     try {
       const { model, prompt, inlineParts, apiKey, isVideo, settings } = req.body;
 
-      // Select real API key: forwarded user key if valid, or server env var
-      let effectiveKey = (apiKey || '').trim();
+      // Extract forwarded visitor API key ONLY — NO server-side environment keys permitted for generation
+      const userKey = (
+        (req.headers['x-api-key'] as string) ||
+        (req.headers.authorization ? req.headers.authorization.replace(/^Bearer\s+/i, '') : '') ||
+        apiKey ||
+        ''
+      ).trim();
+
       const isPlaceholder =
-        !effectiveKey ||
-        effectiveKey === 'GEMINI_API_KEY' ||
-        effectiveKey === 'MY_GEMINI_API_KEY';
-      const serverKey = (process.env.GEMINI_API_KEY || process.env.API_KEY || '').trim();
+        !userKey ||
+        userKey === 'GEMINI_API_KEY' ||
+        userKey === 'MY_GEMINI_API_KEY' ||
+        userKey.startsWith('TODO') ||
+        userKey.toLowerCase().includes('placeholder');
 
       if (isPlaceholder) {
-        effectiveKey = serverKey;
+        console.warn('[Server /api/generate] Rejected: No valid visitor Gemini API key provided');
+        return res.status(400).json({
+          error: 'API key required — add your own Gemini API key in settings',
+        });
       }
+
+      const effectiveKey = userKey;
 
       const partsCount = Array.isArray(inlineParts) ? inlineParts.length : 0;
       const isMultiFrameVideo = Boolean(isVideo || partsCount > 1);
 
       console.log(
-        `[Server /api/generate] Request received. Model: ${model || 'gemini-3.8-flash'}, parts: ${
+        `[Server /api/generate] Request received with visitor key. Model: ${model || 'gemini-3.8-flash'}, parts: ${
           partsCount
-        } (${isMultiFrameVideo ? 'video multi-frame analysis' : 'single asset'}), keyPresent: ${Boolean(
-          effectiveKey
-        )}, keyLength: ${effectiveKey.length}`
+        } (${isMultiFrameVideo ? 'video multi-frame analysis' : 'single asset'}), keyLength: ${effectiveKey.length}`
       );
-
-      if (!effectiveKey) {
-        console.warn('[Server /api/generate] Error: No valid Gemini API key found on server');
-        return res.status(400).json({
-          error: 'No valid Gemini API key available on server. Please add a key in settings.',
-        });
-      }
 
       const targetModel = model || 'gemini-3.8-flash';
       let promptText = (prompt && String(prompt).trim().length > 0) ? String(prompt).trim() : ADOBE_STOCK_PROMPT;
@@ -139,23 +142,6 @@ async function startServer() {
             }
           } catch (fbErr) {
             console.warn(`[Server /api/generate] Exception calling ${fbModel}:`, fbErr);
-          }
-        }
-      }
-
-      // If still not ok and serverKey is available and different, try with serverKey
-      if ((!response || !response.ok) && serverKey && effectiveKey !== serverKey) {
-        console.warn('[Server /api/generate] Retrying with serverKey...');
-        for (const modelToTry of [targetModel, 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite']) {
-          if (response && response.ok) break;
-          try {
-            const retryRes = await callGoogleApi(modelToTry, serverKey);
-            if (retryRes.ok) {
-              response = retryRes;
-              break;
-            }
-          } catch (err) {
-            console.warn(`[Server /api/generate] Error retrying with ${modelToTry}:`, err);
           }
         }
       }

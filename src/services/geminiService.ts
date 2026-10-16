@@ -481,7 +481,12 @@ function postJsonViaXhr<T = unknown>(
         let errMessage = `HTTP ${xhr.status}`;
         try {
           const errJson = JSON.parse(xhr.responseText);
-          if (errJson?.error) errMessage = errJson.error;
+          if (errJson?.error) {
+            errMessage = errJson.error;
+            // Surface exact server error message
+            reject(new Error(errMessage));
+            return;
+          }
         } catch {
           if (xhr.responseText) errMessage = xhr.responseText.slice(0, 150);
         }
@@ -552,7 +557,8 @@ async function callServerProxy(
 
 /**
  * Execute Gemini API request with comprehensive instrumentation,
- * key rotation, exponential backoff, and backend proxy fallback
+ * key rotation, exponential backoff, and backend proxy fallback.
+ * Strictly uses visitor API keys ONLY.
  */
 async function callGeminiApi(
   keyPool: KeyPool,
@@ -562,6 +568,10 @@ async function callGeminiApi(
   isVideo?: boolean,
   settings?: AppSettings
 ): Promise<string> {
+  if (!keyPool.available) {
+    throw new Error('API key required — add your own Gemini API key in settings');
+  }
+
   const maxRetries = 4;
   const backoffDelays = [1000, 2000, 4000, 8000];
 
@@ -570,42 +580,24 @@ async function callGeminiApi(
     const isPlaceholder =
       !currentKey ||
       currentKey === 'GEMINI_API_KEY' ||
-      currentKey === 'MY_GEMINI_API_KEY';
+      currentKey === 'MY_GEMINI_API_KEY' ||
+      currentKey.startsWith('TODO') ||
+      currentKey.toLowerCase().includes('placeholder');
+
+    if (isPlaceholder) {
+      throw new Error('API key required — add your own Gemini API key in settings');
+    }
 
     console.log(
       `[StockMeta AI] Key verification: present=${Boolean(currentKey)}, length=${
         currentKey ? currentKey.length : 0
-      }, isPlaceholder=${isPlaceholder}, poolSize=${keyPool.keyCount}`
+      }, poolSize=${keyPool.keyCount}`
     );
     console.log(
       `[StockMeta AI] [Attempt ${attempt + 1}/${maxRetries + 1}] Target model: ${model}, inline parts count: ${
         inlineParts.length
       }, isVideo: ${Boolean(isVideo)}`
     );
-
-    // If opened directly (not in an iframe) and the key is a placeholder,
-    // direct Google API call with placeholder is guaranteed to fail.
-    // Call server proxy immediately for instant, seamless generation!
-    const isDirectWindow = typeof window !== 'undefined' && window.self === window.top;
-    if (isDirectWindow && isPlaceholder) {
-      console.log(
-        '[StockMeta AI] Direct window & placeholder key detected: using backend proxy /api/generate directly...'
-      );
-      try {
-        const text = await callServerProxy(model, prompt, inlineParts, currentKey, isVideo, settings);
-        return text;
-      } catch (proxyErr) {
-        console.warn(`[StockMeta AI] Backend proxy failed on attempt ${attempt + 1}:`, proxyErr);
-        if (attempt < maxRetries) {
-          keyPool.rotate();
-          const delay = backoffDelays[attempt] || 4000;
-          console.log(`[StockMeta AI] Retrying in ${delay}ms...`);
-          await new Promise((r) => setTimeout(r, delay));
-          continue;
-        }
-        throw proxyErr;
-      }
-    }
 
     // Direct Google API call attempt with safe race timeout (3500ms)
     // If inside AI Studio iframe with active bootstrap, it resolves in ~1s.

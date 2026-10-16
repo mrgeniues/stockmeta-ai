@@ -22,6 +22,7 @@ import { ExportSection } from './components/ExportSection';
 import { FaqSection } from './components/FaqSection';
 import { Footer } from './components/Footer';
 import { ToastContainer } from './components/ToastContainer';
+import { AlertCircle, Plus } from 'lucide-react';
 import { AuroraBackground } from './components/AuroraBackground';
 import { ParticleCanvas } from './components/ParticleCanvas';
 import { SuccessCelebration } from './components/motion/SuccessCelebration';
@@ -68,40 +69,23 @@ export default function App() {
     return [];
   });
 
-  // Built-in API Key support: detect via server health check and injected env vars
-  const [serverHasKey, setServerHasKey] = useState<boolean>(true);
+  // API key dialog trigger and persistent prompt
+  const [apiKeyOpenTrigger, setApiKeyOpenTrigger] = useState<number>(0);
+  const [showKeyRequiredPrompt, setShowKeyRequiredPrompt] = useState<boolean>(false);
 
-  useEffect(() => {
-    try {
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', '/api/health', true);
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            if (typeof data?.hasGeminiKey === 'boolean') {
-              setServerHasKey(data.hasGeminiKey);
-            }
-          } catch {
-            // ignore
-          }
-        }
-      };
-      xhr.send();
-    } catch {
-      // ignore
-    }
+  const triggerOpenKeyInput = useCallback(() => {
+    setApiKeyOpenTrigger((prev) => prev + 1);
+    setShowKeyRequiredPrompt(true);
+    setTimeout(() => {
+      document.getElementById('api-key-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
   }, []);
 
-  const envKey = (
-    process.env.API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    (typeof window !== 'undefined' && (window as any).API_KEY) ||
-    ''
-  ).trim();
-
-  const hasBuiltInKey = serverHasKey || Boolean(envKey && envKey.length > 0);
-  const [useBuiltInKey, setUseBuiltInKey] = useState<boolean>(true);
+  useEffect(() => {
+    if (savedKeys.length > 0) {
+      setShowKeyRequiredPrompt(false);
+    }
+  }, [savedKeys.length]);
 
   // Settings
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -189,20 +173,13 @@ export default function App() {
     setSavedKeys((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Key availability: (>=1 manual key saved) OR (built-in checkbox ON AND built-in key detected)
-  const hasAvailableKey =
-    savedKeys.length >= 1 || (useBuiltInKey && hasBuiltInKey);
+  // Key availability: strictly requires visitor to have at least 1 saved key in localStorage
+  const hasAvailableKey = savedKeys.length >= 1;
 
-  // Build active key pool - strictly prefers user keys over the built-in preview key
+  // Build active key pool: returns ONLY the visitor's saved keys from localStorage; empty pool if no keys
   const getActiveKeyPool = useCallback((): KeyPool => {
-    const keys: string[] =
-      savedKeys.length > 0
-        ? [...savedKeys]
-        : useBuiltInKey && hasBuiltInKey
-        ? [envKey || 'GEMINI_API_KEY']
-        : [];
-    return new KeyPool(keys);
-  }, [savedKeys, useBuiltInKey, hasBuiltInKey, envKey]);
+    return new KeyPool([...savedKeys]);
+  }, [savedKeys]);
 
   // Handle files selected via DropZone
   const handleFilesSelected = async (newRawFiles: File[]) => {
@@ -360,6 +337,11 @@ export default function App() {
       );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('API key required') || msg.includes('No valid visitor Gemini API key')) {
+        setShowKeyRequiredPrompt(true);
+        triggerOpenKeyInput();
+        addToast('error', 'API key required — add your own Gemini API key in settings');
+      }
       setFiles((prev) =>
         prev.map((f) =>
           f.id === item.id
@@ -380,12 +362,22 @@ export default function App() {
     const item = files.find((f) => f.id === id);
     if (!item) return;
 
-    if (!hasAvailableKey) {
-      addToast('error', 'Please add an API key to generate metadata');
+    // FIRST check the saved key pool. If it is empty, do NOT call any API and do NOT attempt generation.
+    if (!hasAvailableKey || savedKeys.length === 0) {
+      setShowKeyRequiredPrompt(true);
+      triggerOpenKeyInput();
+      addToast('error', 'API key required — add your own Gemini API key in settings');
       return;
     }
 
     const pool = getActiveKeyPool();
+    if (!pool.available) {
+      setShowKeyRequiredPrompt(true);
+      triggerOpenKeyInput();
+      addToast('error', 'API key required — add your own Gemini API key in settings');
+      return;
+    }
+
     addToast('info', `Regenerating metadata for ${item.name}...`);
     await processSingleFile(item, pool);
     addToast('success', `Completed regeneration for ${item.name}`);
@@ -393,8 +385,11 @@ export default function App() {
 
   // Batch Generation with 3 concurrent workers
   const handleGenerateBatch = async () => {
-    if (!hasAvailableKey) {
-      addToast('error', 'Please add an API key to generate metadata');
+    // FIRST check the saved key pool. If it is empty, do NOT call any API and do NOT attempt generation.
+    if (!hasAvailableKey || savedKeys.length === 0) {
+      setShowKeyRequiredPrompt(true);
+      triggerOpenKeyInput();
+      addToast('error', 'API key required — add your own Gemini API key in settings');
       return;
     }
     if (files.length === 0) {
@@ -403,6 +398,13 @@ export default function App() {
     }
 
     const pool = getActiveKeyPool();
+    if (!pool.available) {
+      setShowKeyRequiredPrompt(true);
+      triggerOpenKeyInput();
+      addToast('error', 'API key required — add your own Gemini API key in settings');
+      return;
+    }
+
     setIsGenerating(true);
     cancelRequestedRef.current = false;
 
@@ -493,12 +495,10 @@ export default function App() {
                     savedKeys={savedKeys}
                     onSaveKey={handleSaveKey}
                     onRemoveKey={handleRemoveKey}
-                    useBuiltInKey={useBuiltInKey}
-                    onToggleBuiltInKey={setUseBuiltInKey}
-                    hasBuiltInKey={hasBuiltInKey}
                     model={settings.model}
                     onModelChange={(model) => setSettings((s) => ({ ...s, model }))}
                     onToast={addToast}
+                    openTrigger={apiKeyOpenTrigger}
                   />
                 </div>
 
@@ -548,7 +548,32 @@ export default function App() {
                   />
                 </ScrollReveal>
 
-                {/* 6. Full-width Generate Metadata button with progress bar */}
+                {/* Persistent API Key Required Prompt when user attempted generation or has no key */}
+                {(showKeyRequiredPrompt || (!hasAvailableKey && files.length > 0)) && (
+                  <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+                    <div className="flex items-center gap-3 text-rose-400">
+                      <AlertCircle className="h-5 w-5 shrink-0 text-rose-400" />
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-white">
+                          API key required — add your own Gemini API key in settings
+                        </div>
+                        <div className="text-[11px] text-rose-300">
+                          Each visitor must provide their own Gemini key. Keys are saved locally in your browser only.
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={triggerOpenKeyInput}
+                      className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold px-4 py-2 text-xs shadow-md shadow-rose-600/30 transition-all shrink-0"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add API key</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 7. Full-width Generate Metadata button with progress bar */}
                 <ScrollReveal delayMs={60} className="animate-entrance-6">
                   <GeneratorBar
                     hasAvailableKey={hasAvailableKey}
@@ -557,6 +582,7 @@ export default function App() {
                     completedCount={completedCount}
                     totalCount={files.length}
                     onGenerate={handleGenerateBatch}
+                    onOpenApiKey={triggerOpenKeyInput}
                   />
                 </ScrollReveal>
               </div>

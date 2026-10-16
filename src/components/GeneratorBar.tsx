@@ -9,6 +9,7 @@ interface GeneratorBarProps {
   completedCount: number;
   totalCount: number;
   onGenerate: () => void;
+  onOpenApiKey?: () => void;
 }
 
 export const GeneratorBar: React.FC<GeneratorBarProps> = ({
@@ -18,13 +19,14 @@ export const GeneratorBar: React.FC<GeneratorBarProps> = ({
   completedCount,
   totalCount,
   onGenerate,
+  onOpenApiKey,
 }) => {
   const canGenerate = hasAvailableKey && filesCount > 0;
 
   // Exact requested disabled hint text
   let disabledHint = '';
   if (!hasAvailableKey) {
-    disabledHint = 'Please add an API key to generate metadata';
+    disabledHint = 'API key required — add your own Gemini API key in settings';
   } else if (filesCount === 0) {
     disabledHint = 'Please upload files';
   }
@@ -91,13 +93,29 @@ export const GeneratorBar: React.FC<GeneratorBarProps> = ({
           )}
         </MagneticButton>
 
-        {/* Disabled hint text */}
-        {!canGenerate && disabledHint && (
+        {/* Disabled hint text / key prompt */}
+        {!hasAvailableKey ? (
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-rose-400 font-medium">
+            <div className="flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+              <span>API key required — add your own Gemini API key to generate metadata</span>
+            </div>
+            {onOpenApiKey && (
+              <button
+                type="button"
+                onClick={onOpenApiKey}
+                className="cursor-pointer inline-flex items-center gap-1 rounded-md bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 px-2.5 py-0.5 text-xs font-semibold transition-colors"
+              >
+                <span>Add API key</span>
+              </button>
+            )}
+          </div>
+        ) : !canGenerate && disabledHint ? (
           <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-amber-400">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             <span>{disabledHint}</span>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

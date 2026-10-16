@@ -1,34 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExternalLink, Key, Plus, Trash2, CheckCircle2, Cpu, ChevronDown, Loader2 } from 'lucide-react';
 
 interface ApiKeySectionProps {
   savedKeys: string[];
   onSaveKey: (newKey: string) => void;
   onRemoveKey: (index: number) => void;
-  useBuiltInKey: boolean;
-  onToggleBuiltInKey: (val: boolean) => void;
-  hasBuiltInKey: boolean;
   model: 'gemini-3.8-flash' | 'gemini-3.1-pro-preview';
   onModelChange: (model: 'gemini-3.8-flash' | 'gemini-3.1-pro-preview') => void;
   onToast: (type: 'success' | 'error' | 'info', message: string) => void;
+  openTrigger?: number;
 }
 
 export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
   savedKeys,
   onSaveKey,
   onRemoveKey,
-  useBuiltInKey,
-  onToggleBuiltInKey,
-  hasBuiltInKey,
   model,
   onModelChange,
   onToast,
+  openTrigger,
 }) => {
   const apiKeys = savedKeys;
   const [inputValue, setInputValue] = useState('');
   const [showInputSlot, setShowInputSlot] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+
+  useEffect(() => {
+    if (openTrigger) {
+      setIsCollapsed(false);
+      setShowInputSlot(true);
+    }
+  }, [openTrigger]);
 
   const handleSave = async () => {
     const trimmed = inputValue.trim();
@@ -96,7 +99,7 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full" id="api-key-section">
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6 shadow-xl backdrop-blur-sm">
         {/* Header: Bold section header on LEFT; "0/3" counter pill + collapse chevron on RIGHT */}
         <div className="flex items-center justify-between">
@@ -299,38 +302,14 @@ export const ApiKeySection: React.FC<ApiKeySectionProps> = ({
               </p>
             )}
 
-            {/* Built-in Key and Model Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-[var(--border)]">
-              {/* Built-in Key Checkbox & Status */}
-              <div className="flex flex-col justify-center gap-1.5">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={useBuiltInKey}
-                    onChange={(e) => onToggleBuiltInKey(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-[var(--accent)] focus:ring-[var(--accent)] accent-[var(--accent)]"
-                  />
-                  <span className="text-xs sm:text-sm font-medium text-[var(--text)]">
-                    Use built-in preview key when available
-                  </span>
-                </label>
-                <div className="flex items-center gap-2 pl-6">
-                  <span
-                    className={`text-xs ${
-                      hasBuiltInKey ? 'text-emerald-400' : 'text-[var(--muted)]'
-                    }`}
-                  >
-                    {hasBuiltInKey ? 'Built-in key detected' : 'No built-in key'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Model Selection Dropdown */}
-              <div className="flex items-center justify-start md:justify-end gap-3">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--muted)]">
-                  <Cpu className="h-3.5 w-3.5 text-[var(--muted)]" />
-                  <span>Model:</span>
-                </div>
+            {/* Model Selection Row */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[var(--border)]">
+              <span className="text-xs text-[var(--muted)]">
+                Generation model (runs with your saved API key)
+              </span>
+              <div className="flex items-center gap-2">
+                <Cpu className="h-3.5 w-3.5 text-[var(--muted)]" />
+                <span className="text-xs font-medium text-[var(--muted)]">Model:</span>
                 <select
                   value={model}
                   onChange={(e) => onModelChange(e.target.value as 'gemini-3.8-flash' | 'gemini-3.1-pro-preview')}
