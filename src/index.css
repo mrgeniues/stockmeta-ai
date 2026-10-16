@@ -1,0 +1,540 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --brand-pink-primary: #ec4899;
+    --brand-pink-glow: #f472b6;
+
+    /* Theme CSS variables default (midnight) */
+    --bg: #0d0a11;
+    --surface: #1a1420;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #ec4899;
+    --border: #2e2338;
+    --card-glow: rgba(236, 72, 153, 0.28);
+    --pill-bg: #ffffff;
+    --pill-border: rgba(255, 255, 255, 0.2);
+  }
+
+  [data-theme="midnight"] {
+    color-scheme: dark;
+    --bg: #0d0a11;
+    --surface: #1a1420;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #ec4899;
+    --border: #2e2338;
+    --card-glow: rgba(236, 72, 153, 0.28);
+    --pill-bg: #ffffff;
+    --pill-border: rgba(255, 255, 255, 0.2);
+  }
+
+  [data-theme="ocean"] {
+    color-scheme: dark;
+    --bg: #0a1628;
+    --surface: #0f2038;
+    --text: #e0f2fe;
+    --muted: #7dd3fc;
+    --accent: #38bdf8;
+    --border: #1e3557;
+    --card-glow: rgba(56, 189, 248, 0.28);
+    --pill-bg: #ffffff;
+    --pill-border: rgba(255, 255, 255, 0.2);
+  }
+
+  [data-theme="sunset"] {
+    color-scheme: dark;
+    --bg: #1a0f1e;
+    --surface: #2a1530;
+    --text: #fef3c7;
+    --muted: #d6bc9f;
+    --accent: #f97316;
+    --border: #3f2147;
+    --card-glow: rgba(249, 115, 22, 0.28);
+    --pill-bg: #ffffff;
+    --pill-border: rgba(255, 255, 255, 0.2);
+  }
+
+  [data-theme="light"] {
+    color-scheme: light;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --border: #e2e8f0;
+    --card-glow: rgba(37, 99, 235, 0.22);
+    --pill-bg: #ffffff;
+    --pill-border: #cbd5e1;
+  }
+
+  [data-theme="emerald"] {
+    color-scheme: dark;
+    --bg: #07120e;
+    --surface: #0d1f16;
+    --text: #d1fae5;
+    --muted: #6ee7b7;
+    --accent: #10b981;
+    --border: #193828;
+    --card-glow: rgba(16, 185, 129, 0.28);
+    --pill-bg: #ffffff;
+    --pill-border: rgba(255, 255, 255, 0.2);
+  }
+
+  [data-theme="dark-blue"] {
+    color-scheme: dark;
+    --bg: #020617;
+    --surface: #0a1128;
+    --text: #e0e7ff;
+    --muted: #93c5fd;
+    --accent: #3b82f6;
+    --border: #172554;
+    --card-glow: rgba(59, 130, 246, 0.28);
+    --pill-bg: #ffffff;
+    --pill-border: rgba(255, 255, 255, 0.2);
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+/* ==========================================================================
+   aisquadx.com-style Keyframes: Aurora, Floating Orbs, Shimmers & Entrances
+   ========================================================================== */
+
+/* (a) Aurora Drift Keyframes (transform & opacity only) */
+@keyframes auroraDrift1 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(50px, -40px, 0) scale(1.15) rotate(15deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(-30px, 30px, 0) scale(0.95) rotate(-10deg);
+    opacity: 0.85;
+  }
+}
+
+@keyframes auroraDrift2 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate3d(-60px, 50px, 0) scale(1.2) rotate(-20deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(40px, -30px, 0) scale(0.9) rotate(10deg);
+    opacity: 0.8;
+  }
+}
+
+@keyframes auroraDrift3 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate3d(40px, -50px, 0) scale(1.1);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(-40px, 40px, 0) scale(0.95);
+    opacity: 0.75;
+  }
+}
+
+/* (b) Floating Orbs Keyframes (transform only) */
+@keyframes orbFloat1 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(40px, -50px, 0) scale(1.1);
+  }
+  66% {
+    transform: translate3d(-30px, -80px, 0) scale(0.95);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes orbFloat2 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(-50px, 40px, 0) scale(1.15);
+  }
+  66% {
+    transform: translate3d(30px, 60px, 0) scale(0.9);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes orbFloat3 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(45px, 35px, 0) scale(1.2);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* (c) Entrance Slide-Up + Fade with spring-like cubic-bezier */
+@keyframes entranceFadeSlide {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+/* (e) Shimmer Sweep for Buttons */
+@keyframes shimmerSweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(250%) skewX(-20deg);
+  }
+}
+
+/* (e) Shimmer Sweep for Progress Bar */
+@keyframes progressPulseSweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Active breathing theme accent glow */
+@keyframes pinkPulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px -2px var(--card-glow), 0 0 30px -4px var(--card-glow);
+  }
+  50% {
+    box-shadow: 0 0 25px 2px var(--card-glow), 0 0 45px 4px var(--card-glow);
+  }
+}
+
+/* H1 Metadata Pill Gradient Sweep */
+@keyframes pillGradientSweep {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes pillSheenPass {
+  0% {
+    transform: translateX(-150%) skewX(-25deg);
+  }
+  100% {
+    transform: translateX(250%) skewX(-25deg);
+  }
+}
+
+/* Button Material Ripple */
+@keyframes rippleExpand {
+  0% {
+    transform: scale(0);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* Checkmark draw animation for success celebration */
+@keyframes checkmarkDraw {
+  0% {
+    stroke-dashoffset: 48;
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+/* Pop-in animation for modal celebration */
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Skeleton shimmer on result cards while generating */
+@keyframes skeletonPulse {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+/* Aurora background blob classes */
+.animate-aurora-1 {
+  animation: auroraDrift1 24s ease-in-out infinite alternate;
+}
+.animate-aurora-2 {
+  animation: auroraDrift2 28s ease-in-out infinite alternate;
+}
+.animate-aurora-3 {
+  animation: auroraDrift3 32s ease-in-out infinite alternate;
+}
+
+/* Floating orb classes */
+.animate-orb-1 {
+  animation: orbFloat1 18s ease-in-out infinite;
+}
+.animate-orb-2 {
+  animation: orbFloat2 22s ease-in-out infinite;
+}
+.animate-orb-3 {
+  animation: orbFloat3 26s ease-in-out infinite;
+}
+
+/* Staggered entrance animations */
+.animate-entrance-1 {
+  animation: entranceFadeSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0ms both;
+}
+.animate-entrance-2 {
+  animation: entranceFadeSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
+}
+.animate-entrance-3 {
+  animation: entranceFadeSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 160ms both;
+}
+.animate-entrance-4 {
+  animation: entranceFadeSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 240ms both;
+}
+.animate-entrance-5 {
+  animation: entranceFadeSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 320ms both;
+}
+.animate-entrance-6 {
+  animation: entranceFadeSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 400ms both;
+}
+.animate-entrance-sidebar {
+  animation: entranceFadeSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) 220ms both;
+}
+
+/* (d) Hover Lift + Theme Accent Glow Utility */
+.hover-pink-lift {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
+}
+.hover-pink-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -4px var(--card-glow), 0 0 14px 1px var(--card-glow);
+  border-color: var(--accent) !important;
+}
+
+/* Button accent glow hover */
+.hover-btn-pink {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+}
+.hover-btn-pink:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -2px var(--card-glow), 0 0 16px 2px var(--card-glow);
+}
+.hover-btn-pink:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Shimmer sweep animation utility */
+.animate-shimmer-sweep {
+  animation: shimmerSweep 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-progress-shimmer {
+  background-size: 200% 100%;
+  animation: progressPulseSweep 2s linear infinite;
+}
+
+.animate-pink-pulse {
+  animation: pinkPulseGlow 3s ease-in-out infinite;
+}
+
+/* Metadata pill shimmering animations */
+.animate-pill-shimmer {
+  background-size: 200% 200%;
+  animation: pillGradientSweep 4.5s ease infinite;
+}
+
+.animate-pill-sheen {
+  animation: pillSheenPass 3.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Material click ripple */
+.animate-ripple-expand {
+  animation: rippleExpand 0.6s ease-out forwards;
+}
+
+/* Checkmark draw for celebration */
+.animate-checkmark-draw {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: checkmarkDraw 0.8s cubic-bezier(0.65, 0, 0.35, 1) 0.15s forwards;
+}
+
+/* Modal pop-in */
+.animate-pop-in {
+  animation: popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Skeleton shimmer for file card generation */
+.animate-skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(30, 41, 59, 0.75) 25%, var(--card-glow) 50%, rgba(30, 41, 59, 0.75) 75%);
+  background-size: 200% 100%;
+  animation: skeletonPulse 1.8s ease-in-out infinite;
+}
+
+/* Scroll reveal helper */
+.scroll-reveal {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* ==========================================================================
+   Accessibility: prefers-reduced-motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .aurora-bg-layer,
+  .floating-orb,
+  .particle-canvas-layer {
+    opacity: 0.85;
+  }
+  .animate-entrance-1,
+  .animate-entrance-2,
+  .animate-entrance-3,
+  .animate-entrance-4,
+  .animate-entrance-5,
+  .animate-entrance-6,
+  .animate-entrance-sidebar,
+  .animate-pill-shimmer,
+  .animate-pill-sheen,
+  .animate-pop-in,
+  .animate-skeleton-shimmer {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .animate-checkmark-draw {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
+  .scroll-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .hover-pink-lift:hover,
+  .hover-btn-pink:hover {
+    transform: none !important;
+  }
+}
+
+/* Slim Custom Scrollbar scoped to Generated Metadata Card */
+.metadata-slim-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg);
+}
+
+.metadata-slim-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.metadata-slim-scrollbar::-webkit-scrollbar-track {
+  background: var(--bg);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.metadata-slim-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+  border: 1px solid var(--surface);
+  transition: background-color 0.2s ease;
+}
+
+.metadata-slim-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+.metadata-slim-scrollbar::-webkit-scrollbar-button:single-button {
+  background-color: var(--surface);
+  display: block;
+  height: 10px;
+  width: 7px;
+}
+
+.metadata-slim-scrollbar::-webkit-scrollbar-button:single-button:vertical:decrement {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%2394a3b8'><polygon points='50,20 15,75 85,75'/></svg>");
+  background-size: 6px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.metadata-slim-scrollbar::-webkit-scrollbar-button:single-button:vertical:increment {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%2394a3b8'><polygon points='50,80 15,25 85,25'/></svg>");
+  background-size: 6px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+

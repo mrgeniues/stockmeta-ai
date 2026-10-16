@@ -1,0 +1,6 @@
+{
+  "name": "StockMeta AI",
+  "description": "Free AI stock metadata generator for photos, illustrations, and videos with Gemini client-side processing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
