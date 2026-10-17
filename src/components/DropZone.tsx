@@ -41,6 +41,10 @@ const ACCEPTED_MIMES = [
   'video/webm',
 ];
 
+// Max files per batch: 100 keeps uploads, poster extraction and generation
+// within a smooth range (verified at 64; 500 was never verified end-to-end).
+const MAX_FILES = 100;
+
 export const DropZone: React.FC<DropZoneProps> = ({
   currentCount,
   onFilesSelected,
@@ -87,9 +91,9 @@ export const DropZone: React.FC<DropZoneProps> = ({
       return;
     }
 
-    const availableSlots = 500 - currentCount;
+    const availableSlots = MAX_FILES - currentCount;
     if (availableSlots <= 0) {
-      onToast('error', 'Maximum limit of 500 files reached. Please clear files to add more.');
+      onToast('error', `Maximum limit of ${MAX_FILES} files reached. Please clear files to add more.`);
       return;
     }
 
@@ -98,7 +102,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
       filesToAdd = accepted.slice(0, availableSlots);
       onToast(
         'info',
-        `Added ${availableSlots} files. Maximum 500 file limit reached.`
+        `Added ${availableSlots} files. Maximum ${MAX_FILES} file limit reached.`
       );
     }
 
@@ -215,13 +219,13 @@ export const DropZone: React.FC<DropZoneProps> = ({
           <span aria-hidden="true">·</span>
           <span>MP4, AVI, MOV, WMV, FLV, WebM</span>
           <span aria-hidden="true">·</span>
-          <span>Max 500 files</span>
+          <span>Max {MAX_FILES} files</span>
         </div>
 
         {/* Counter Badge at bottom-right */}
         <div className="absolute bottom-2.5 right-2.5 pointer-events-none">
           <span className="inline-flex items-center rounded-md border border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-xs px-2 py-0.5 text-xs font-mono font-semibold text-[var(--muted)] tabular-nums shadow-xs">
-            <AnimatedCounter value={currentCount} />/500
+            <AnimatedCounter value={currentCount} />/{MAX_FILES}
           </span>
         </div>
       </div>
